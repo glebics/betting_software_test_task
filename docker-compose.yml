@@ -1,0 +1,55 @@
+version: '3.8'
+services:
+
+  rabbitmq:
+    image: rabbitmq:3.11-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # Для доступа к веб-интерфейсу RabbitMQ
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  postgres:
+    image: postgres:15
+    container_name: postgres_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: betuser
+      POSTGRES_PASSWORD: betpassword
+      POSTGRES_DB: betsdb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U betuser -d betsdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  line-provider:
+    build: ./line-provider
+    container_name: line_provider
+    ports:
+      - "8001:8000"
+    depends_on:
+      - rabbitmq
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+
+  bet-maker:
+    build: ./bet-maker
+    container_name: bet_maker
+    ports:
+      - "8002:8000"
+    depends_on:
+      - rabbitmq
+      - postgres
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: betsdb
+      POSTGRES_USER: betuser
+      POSTGRES_PASSWORD: betpassword
