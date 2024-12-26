@@ -69,7 +69,7 @@ async def get_events():
 
 
 @app.get("/event/{event_id}")
-async def get_event(event_id: str = Path(default=None)):
+async def get_event(event_id: str = Path(...)):
     """
     Получить информацию об одном событии
     """
