@@ -1,20 +1,27 @@
-# line_provider/tests/test_line_provider_integration.py
+"""
+Интеграционные тесты для line_provider, запущенного на http://localhost:8001.
+
+Перед запуском требуется, чтобы line_provider уже был запущен 
+(например, через docker-compose) и доступен на 8001 порту.
+"""
 import pytest
 import time
 from decimal import Decimal
 from httpx import AsyncClient
 from uuid import uuid4
-from decimal import Decimal
-
-"""
-Интеграционные тесты для line_provider, запущенного на http://localhost:8001
-"""
 
 LINE_PROVIDER_BASE_URL = "http://localhost:8001"
 
 
 @pytest.mark.asyncio
-async def test_create_and_update_event_integration():
+async def test_create_and_update_event_integration() -> None:
+    """
+    Проверяет возможность создания и обновления события на line_provider:
+    1) Создаёт уникальное событие.
+    2) Получает и проверяет его данные.
+    3) Обновляет состояние до FINISHED_WIN.
+    4) Повторно получает и проверяет обновлённое состояние.
+    """
     unique_event_id = f"test_event_{uuid4().hex}"
     test_event = {
         "event_id": unique_event_id,
@@ -32,7 +39,8 @@ async def test_create_and_update_event_integration():
         resp = await ac.get(f"/event/{unique_event_id}")
         assert resp.status_code == 200, f"Get Event Response: {resp.status_code}, {resp.text}"
         data = resp.json()
-        assert float(Decimal(data["coefficient"])) == float(Decimal(test_event["coefficient"]))
+        assert float(Decimal(data["coefficient"])) == float(
+            Decimal(test_event["coefficient"]))
         assert data["state"] == "NEW"
 
         # 3) Обновляем состояние события до FINISHED_WIN

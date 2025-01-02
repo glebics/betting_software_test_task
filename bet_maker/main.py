@@ -1,7 +1,13 @@
+"""
+Главный модуль FastAPI приложения bet_maker, отвечающего за работу со ставками (bets).
+- Инициализирует подключение к БД (через init_db).
+- Запускает прослушивание сообщений от RabbitMQ.
+- Предоставляет эндпоинты для CRUD-операций со ставками.
+"""
 import os
 import asyncio
 import logging
-from typing import List
+from typing import List, Set, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import select, update
@@ -11,22 +17,26 @@ from db import init_db, SessionLocal
 from models import Bet
 from schemas import BetCreate, BetDB
 
-
 # Логгер
 logger = logging.getLogger("bet_maker")
 logging.basicConfig(level=logging.INFO)
 
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
-RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", "5672"))
-EXCHANGE_NAME = "events_exchange"
-QUEUE_NAME = "events.finished"
-ROUTING_KEY = "event.finished"
+RABBITMQ_HOST: str = os.getenv("RABBITMQ_HOST", "rabbitmq")
+RABBITMQ_PORT: int = int(os.getenv("RABBITMQ_PORT", "5672"))
+EXCHANGE_NAME: str = "events_exchange"
+QUEUE_NAME: str = "events.finished"
+ROUTING_KEY: str = "event.finished"
 
 app = FastAPI()
 
 
 @app.on_event("startup")
-async def on_startup():
+async def on_startup() -> None:
+    """
+    Хук, вызывающийся при старте приложения. 
+    - Инициализирует базу данных.
+    - Запускает задачу прослушивания очереди RabbitMQ.
+    """
     # Инициализация БД
     await init_db()
 
@@ -35,29 +45,34 @@ async def on_startup():
 
 
 @app.get("/events")
-async def get_active_events():
+async def get_active_events() -> Dict[str, List[str]]:
     """
-    Возвращает список событий, у которых есть хотя бы одна ставка
-    в статусе NEW. (Для упрощения.)
+    Возвращает список событий, у которых есть хотя бы одна ставка 
+    в статусе "NEW". (Упрощённая логика определения активных событий.)
+
+    :return: Словарь с ключом "active_events" и списком ID событий.
     """
     async with SessionLocal() as session:
         # Выбираем события, у которых есть ставки в статусе NEW
         result = await session.execute(
             select(Bet.event_id).where(Bet.status == "NEW")
         )
-        active_event_ids = set(row[0] for row in result.all())
+        active_event_ids: Set[str] = set(row[0] for row in result.all())
 
     return {"active_events": list(active_event_ids)}
 
 
 @app.post("/bet", response_model=BetDB)
-async def create_bet(bet_data: BetCreate):
+async def create_bet(bet_data: BetCreate) -> BetDB:
     """
-    Создание новой ставки
+    Создаёт новую ставку (Bet) в базе данных.
+
+    :param bet_data: Данные для создания ставки (event_id, amount).
+    :return: Созданная ставка (BetDB).
     """
-    # Здесь можно добавить проверки:
-    # 1) Существует ли такое событие (либо кэш, либо запрос к line_provider)
-    # 2) Не истёк ли дедлайн
+    # Здесь можно добавить дополнительные проверки:
+    # 1) Существует ли такое событие (либо кэш, либо запрос к line_provider).
+    # 2) Не истёк ли дедлайн.
     # и т.д.
     new_bet = Bet(
         event_id=bet_data.event_id,
@@ -74,9 +89,11 @@ async def create_bet(bet_data: BetCreate):
 
 
 @app.get("/bets", response_model=List[BetDB])
-async def get_bets():
+async def get_bets() -> List[BetDB]:
     """
-    История всех ставок
+    Возвращает полную историю всех ставок (Bet) из базы данных.
+
+    :return: Список всех ставок в формате BetDB.
     """
     async with SessionLocal() as session:
         result = await session.execute(select(Bet))
@@ -84,10 +101,12 @@ async def get_bets():
     return [BetDB.from_orm(b) for b in bets]
 
 
-async def consume_events():
+async def consume_events() -> None:
     """
-    Подключаемся к RabbitMQ, создаём очередь и подписываемся на сообщения
-    о завершении событий.
+    Фоновая задача, подключающаяся к RabbitMQ, создаёт очередь 
+    и подписывается на сообщения о завершении событий (event.finished).
+
+    При получении каждого сообщения вызывается колбэк on_event_finished.
     """
     try:
         connection = await connect_robust(
@@ -114,17 +133,22 @@ async def consume_events():
         asyncio.create_task(consume_events())
 
 
-async def on_event_finished(message: IncomingMessage):
+async def on_event_finished(message: IncomingMessage) -> None:
     """
-    Callback, который вызывается при получении сообщения
-    о завершённом событии. Формат: "event_id:FINISHED_WIN" или "event_id:FINISHED_LOSE".
+    Колбэк, вызываемый при получении сообщения о завершённом событии.
+    Формат тела сообщения: "event_id:FINISHED_WIN" или "event_id:FINISHED_LOSE".
+
+    - Извлекает event_id и состояние (WIN/LOSE).
+    - Обновляет все ставки с event_id, у которых статус "NEW", на соответствующий ("WIN" или "LOSE").
+
+    :param message: Объект сообщения из RabbitMQ.
     """
     try:
-        body = message.body.decode()
+        body: str = message.body.decode()
         event_id, state_str = body.split(":")
         logger.info(f"Received event finish: {event_id} - {state_str}")
 
-        # Обновляем все ставки по event_id
+        # Определяем новый статус ставок
         new_status = "WIN" if state_str == "FINISHED_WIN" else "LOSE"
         async with SessionLocal() as session:
             await session.execute(
