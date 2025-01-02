@@ -19,6 +19,10 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache
+/.pytest_cache
+myenv
+/myenv
 
 # Installer logs
 pip-log.txt
