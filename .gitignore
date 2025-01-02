@@ -23,6 +23,8 @@ var/
 /.pytest_cache
 myenv
 /myenv
+.DS_Store
+/.DS_Store
 
 # Installer logs
 pip-log.txt
