@@ -16,6 +16,19 @@ docker-compose up --build
 
 Далее можно отправлять тестовые запросы через **curl** или Postman, проверять логи сервисов и корректную обработку ставок.
 
+Для прогона **интеграционных** тестов нужно выполнить: 
+
+```bash
+pytest bet_maker/tests/test_bet_maker_integration.py
+```
+и
+```bash
+pytest line_provider/tests/test_line_provider_integration.py
+```
+
+при запуске интеграционных тестов докер контейнер должен быть уже развернут, иначе нужные порты на localhost будут недоступны.
+
+
 ```
 bsw-test-line-provider
 ├─ .git
