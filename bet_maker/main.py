@@ -13,7 +13,7 @@ from schemas import BetCreate, BetDB
 
 
 # Логгер
-logger = logging.getLogger("bet-maker")
+logger = logging.getLogger("bet_maker")
 logging.basicConfig(level=logging.INFO)
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
@@ -56,7 +56,7 @@ async def create_bet(bet_data: BetCreate):
     Создание новой ставки
     """
     # Здесь можно добавить проверки:
-    # 1) Существует ли такое событие (либо кэш, либо запрос к line-provider)
+    # 1) Существует ли такое событие (либо кэш, либо запрос к line_provider)
     # 2) Не истёк ли дедлайн
     # и т.д.
     new_bet = Bet(

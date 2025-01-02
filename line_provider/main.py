@@ -15,7 +15,7 @@ events: Dict[str, Event] = {}
 app = FastAPI()
 
 # Логгер
-logger = logging.getLogger("line-provider")
+logger = logging.getLogger("line_provider")
 logging.basicConfig(level=logging.INFO)
 
 # Настройки для RabbitMQ

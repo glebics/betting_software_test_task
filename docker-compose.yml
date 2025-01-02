@@ -32,7 +32,7 @@ services:
       retries: 5
 
   line_provider:
-    build: ./line-provider
+    build: ./line_provider
     container_name: line_provider
     ports:
       - "8001:8000"
@@ -43,7 +43,7 @@ services:
       RABBITMQ_PORT: 5672
 
   bet_maker:
-    build: ./bet-maker
+    build: ./bet_maker
     container_name: bet_maker
     ports:
       - "8002:8000"
